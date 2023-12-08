@@ -17,35 +17,80 @@ from streamlit.logger import get_logger
 
 LOGGER = get_logger(__name__)
 
+import base64
 
-def run():
-    st.set_page_config(
-        page_title="Hello",
-        page_icon="👋",
-    )
+import streamlit as st
+import requests
+import pandas as pd
+import time
 
-    st.write("# Welcome to Streamlit! 👋")
+st.title("CSR Data Fetcher and Merger")
 
-    st.sidebar.success("Select a demo above.")
+# Function to fetch CSR data for a given CIN
+def fetch_csr_data(cin):
+    try:
+        url = "https://www.csr.gov.in/content/csr/global/master/home/home/csr-expenditure--geographical-distribution/state/district/company.companyDataAPI.html?cin={}&fy=FY%202020-21".format(cin)
+        payload = {}
+        headers = {
+            'Cookie': 'cookiesession1=678B286D57C1C30AD319826AEA641D02'
+        }
+        response = requests.request("GET", url, headers=headers, data=payload, verify=False)
+        data = response.json()
 
-    st.markdown(
-        """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
-        **👈 Select a demo from the sidebar** to see some examples
-        of what Streamlit can do!
-        ### Want to learn more?
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
-        ### See more complex demos
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
-    """
-    )
+        data_company_card = data['cmpny_header']['data']['cmpny_header_data']
+        df_card = pd.DataFrame.from_dict(data_company_card)
+
+        data_company_csr = data['cmpny_csr_detail']['data']['cmpny_csr_detail_data']
+        df_csr = pd.DataFrame.from_dict(data_company_csr)
+
+        df_csr_head = data['cmpny_csr_header']['data']['cmpny_csr_header_data']
+        df_csr_header = pd.DataFrame.from_dict(df_csr_head)
+
+        return df_card, df_csr, df_csr_header
+    except Exception as e:
+        st.warning(f"Error fetching data for CIN {cin}: {str(e)}")
+        return None, None, None
+
+# Streamlit App
+uploaded_file = st.file_uploader("Upload Wharton CIN Excel file", type=["xlsx"])
+
+if uploaded_file is not None:
+    # Read the uploaded Excel file
+    df_cin = pd.read_excel(uploaded_file)
+
+    df_card_final = pd.DataFrame()
+    df_csr_final = pd.DataFrame()
+    df_csr_head_final = pd.DataFrame()
+
+    # Iterate through each CIN in the uploaded file
+    with st.spinner("Fetching and processing data..."):
+        for i in df_cin['cin']:
+            df_card, df_csr, df_csr_header = fetch_csr_data(i)
+
+            if df_card is not None:
+                df_card_final = pd.concat([df_card_final, df_card], ignore_index=True)
+
+            if df_csr is not None:
+                df_csr_final = pd.concat([df_csr_final, df_csr], ignore_index=True)
+
+            if df_csr_header is not None:
+                df_csr_head_final = pd.concat([df_csr_head_final, df_csr_header], ignore_index=True)
+
+            time.sleep(2)  # Add a delay to avoid hitting the API too frequently
+
+    # Merge the DataFrames
+    merged_df = pd.merge(df_csr_head_final, df_card_final, on="cin")
+    merged_df = pd.merge(merged_df, df_csr_final, on="cin")
+
+    # Display the merged DataFrame
+    st.subheader("Merged DataFrame")
+    st.dataframe(merged_df)
+
+    if st.button("Download Final Dataset"):
+        # Download the DataFrame as a CSV file
+        csv = merged_df.to_csv(index=False)
+        b64 = base64.b64encode(csv.encode()).decode()  # Convert to base64 encoding
+        href = f'<a href="data:file/csv;base64,{b64}" download="final_dataset.csv">Download CSV</a>'
+        st.markdown(href, unsafe_allow_html=True)
 
 
-if __name__ == "__main__":
-    run()
