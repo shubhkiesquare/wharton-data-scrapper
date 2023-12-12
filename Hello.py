@@ -88,11 +88,11 @@ if uploaded_file is not None:
     st.subheader("Merged DataFrame")
     st.dataframe(merged_df)
 
-    if st.button("Download Final Dataset", key="download_button"):
-        # Download the DataFrame as a CSV file
-        csv = merged_df.to_csv(index=False)
-        b64 = base64.b64encode(csv.encode()).decode()  # Convert to base64 encoding
-        href = f'<a href="data:file/csv;base64,{b64}" download="final_dataset.csv">Download CSV</a>'
-        st.markdown(href, unsafe_allow_html=True)
+    
+    # Download the DataFrame as a CSV file
+    csv = merged_df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()  # Convert to base64 encoding
+    href = f'<a href="data:file/csv;base64,{b64}" download="final_dataset.csv">Download CSV</a>'
+    st.markdown(href, unsafe_allow_html=True)
 
 
