@@ -65,6 +65,8 @@ if uploaded_file is not None:
     # Iterate through each CIN in the uploaded file
     with st.spinner("Fetching and processing data..."):
         for i in df_cin['cin']:
+            index_no = df_cin.columns.get_loc(i)
+            st.write("Index of cin : {}".format( index_no))
             df_card, df_csr, df_csr_header = fetch_csr_data(i)
 
             if df_card is not None:
